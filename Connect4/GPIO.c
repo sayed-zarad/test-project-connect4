@@ -1,128 +1,448 @@
 #include "GPIO.h"
 
 
-//function to determine the pin mode input or output, pull up or pull down ,digital enable 
-void Pin_Mode(GPIO_Port port, GPIO_Pin pin, GPIO_PinMode dir)
+void GPIO_Init(void)
 {
-    // Check if the port is valid
-    if (port != GPIO_PortF) {
-        // Handle other ports if needed
-        return;
-    }
+    GPIO_EnablePortClock(GPIO_PORTF);   // Enable Port F clock
 
-    // Configure the pin based on the desired mode
-    switch (dir) {
-        case GPIO_PIN_INPUT:
-            // Set the pin as input
-            GPIO_PORTF_DIR_R &= ~(1 << pin);
+    GPIO_UnlockPort(GPIO_PORTF);        // Unlock PortF PF0
+    GPIO_AllowChanges(GPIO_PORTF, 0x1F); // Allow changes to PF4-0
 
-            // Disable alternate function, enable digital function, disable analog function
-            GPIO_PORTF_AFSEL_R &= ~(1 << pin);
-            GPIO_PORTF_DEN_R |= (1 << pin);
-            GPIO_PORTF_AMSEL_R &= ~(1 << pin);
+    GPIO_SetAnalogFunction(GPIO_PORTF, 0x00);       // Disable analog function
+    GPIO_ClearPinControl(GPIO_PORTF, 0x1F);          // Clear GPIO PCTL
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_4, 0); // PF4 input
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_0, 0); // PF0 input
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_3, 1); // PF3 output
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_2, 1); // PF2 output
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_1, 1); // PF1 output
 
-            // Clear the pin's PCTL bits
-            GPIO_PORTF_PCTL_R &= ~(0xF << (pin * 4));
-            break;
+    GPIO_DisableAlternateFunction(GPIO_PORTF, 0x00); // Disable alternate function
+    GPIO_EnablePullUp(GPIO_PORTF, GPIO_PIN_4);       // Enable pull-up resistor on PF4
+    GPIO_EnablePullUp(GPIO_PORTF, GPIO_PIN_0);       // Enable pull-up resistor on PF0
+    GPIO_EnableDigital(GPIO_PORTF, 0x1F);            // Enable digital pins PF4-PF0
 
-        case GPIO_PIN_OUTPUT:
-            // Set the pin as output
-            GPIO_PORTF_DIR_R |= (1 << pin);
+    // Configure interrupts for PF4 (SW1) and PF0 (SW2)
+    GPIO_SetInterruptSense(GPIO_PORTF, GPIO_PIN_4, GPIO_EDGE_SENSITIVE); // Edge-sensitive interrupt
+    GPIO_SetInterruptSense(GPIO_PORTF, GPIO_PIN_0, GPIO_EDGE_SENSITIVE); // Edge-sensitive interrupt
+    GPIO_SetInterruptBothEdges(GPIO_PORTF, GPIO_PIN_4, GPIO_DISABLE_BOTH_EDGES); // Not both edges trigger
+    GPIO_SetInterruptBothEdges(GPIO_PORTF, GPIO_PIN_0, GPIO_DISABLE_BOTH_EDGES); // Not both edges trigger
+    GPIO_SetInterruptEvent(GPIO_PORTF, GPIO_PIN_4, GPIO_FALLING_EDGE_EVENT); // Falling edge event
+    GPIO_SetInterruptEvent(GPIO_PORTF, GPIO_PIN_0, GPIO_FALLING_EDGE_EVENT); // Falling edge event
+    GPIO_ClearInterruptFlags(GPIO_PORTF, GPIO_PIN_4); // Clear interrupt flag for PF4
+    GPIO_ClearInterruptFlags(GPIO_PORTF, GPIO_PIN_0); // Clear interrupt flag for PF0
+    GPIO_EnableInterrupt(GPIO_PORTF, GPIO_PIN_4);    // Enable interrupt for PF4 (SW1)
+    GPIO_EnableInterrupt(GPIO_PORTF, GPIO_PIN_0);    // Enable interrupt for PF0
 
-            // Disable alternate function, enable digital function, disable analog function
-            GPIO_PORTF_AFSEL_R &= ~(1 << pin);
-            GPIO_PORTF_DEN_R |= (1 << pin);
-            GPIO_PORTF_AMSEL_R &= ~(1 << pin);
+    // Set interrupt priority to 5
+    GPIO_SetInterruptPriority(5);
 
-            // Clear the pin's PCTL bits
-            GPIO_PORTF_PCTL_R &= ~(0xF << (pin * 4));
-            break;
-
-        case GPIO_PIN_INPUT_PULLUP:
-            // Set the pin as input
-            GPIO_PORTF_DIR_R &= ~(1 << pin);
-
-            // Disable alternate function, enable digital function, disable analog function
-            GPIO_PORTF_AFSEL_R &= ~(1 << pin);
-            GPIO_PORTF_DEN_R |= (1 << pin);
-            GPIO_PORTF_AMSEL_R &= ~(1 << pin);
-
-            // Enable the pull-up resistor for the pin
-            GPIO_PORTF_PUR_R |= (1 << pin);
-
-            // Clear the pin's PCTL bits
-            GPIO_PORTF_PCTL_R &= ~(0xF << (pin * 4));
-            break;
-
-        case GPIO_PIN_INPUT_PULLDOWN:
-            // Set the pin as input
-            GPIO_PORTF_DIR_R &= ~(1 << pin);
-
-            // Disable alternate function, enable digital function, disable analog function
-            GPIO_PORTF_AFSEL_R &= ~(1 << pin);
-            GPIO_PORTF_DEN_R |= (1 << pin);
-            GPIO_PORTF_AMSEL_R &= ~(1 << pin);
-
-            // Enable the pull-down resistor for the pin
-            GPIO_PORTF_PDR_R |= (1 << pin);
-
-            // Clear the pin's PCTL bits
-            GPIO_PORTF_PCTL_R &= ~(0xF << (pin * 4));
-            break;
-
-        default:
-            // Invalid pin mode
-            break;
-    }
+    // Enable interrupt 30 in NVIC (IRQ = 30)
+   GPIO_EnableInterruptInNVIC();
 }
 
-
-//connet specific port to clock 
-GPIO_Status GPIO_EnablePortClock(GPIO_Port port)
+void GPIO_EnablePortClock(GPIO_Port port)
 {
     volatile unsigned long delay;
-    
-    // Check if the port is valid
-    if (port > 7) {
-        return GPIO_ERROR_INVALID_PORT;
+    volatile unsigned long* sysctlRCGCGPIOReg;
+    volatile unsigned long* sysctlRCGC2Reg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            sysctlRCGCGPIOReg = &SYSCTL_RCGCGPIO_R;
+            sysctlRCGC2Reg = &SYSCTL_RCGC2_R;
+            break;
+        case GPIO_PORTB:
+            sysctlRCGCGPIOReg = &SYSCTL_RCGCGPIO_R;
+            sysctlRCGC2Reg = &SYSCTL_RCGC2_R;
+            break;
+        case GPIO_PORTC:
+            sysctlRCGCGPIOReg = &SYSCTL_RCGCGPIO_R;
+            sysctlRCGC2Reg = &SYSCTL_RCGC2_R;
+            break;
+        case GPIO_PORTD:
+            sysctlRCGCGPIOReg = &SYSCTL_RCGCGPIO_R;
+            sysctlRCGC2Reg = &SYSCTL_RCGC2_R;
+            break;
+        case GPIO_PORTE:
+            sysctlRCGCGPIOReg = &SYSCTL_RCGCGPIO_R;
+            sysctlRCGC2Reg = &SYSCTL_RCGC2_R;
+            break;
+        case GPIO_PORTF:
+            sysctlRCGCGPIOReg = &SYSCTL_RCGCGPIO_R;
+            sysctlRCGC2Reg = &SYSCTL_RCGC2_R;
+            break;
+        default:
+            return; // Invalid port
     }
 
-    SYSCTL_RCGCGPIO_R |= (1 << port);  // Enable the clock for the specified port
-
-    delay = SYSCTL_RCGCGPIO_R;  // Delay for a few cycles to allow the clock to stabilize
-
-    SYSCTL_RCGC2_R |= (1 << port);  // Enable the port in RCGC2 to provide full functionality
-
-    delay = SYSCTL_RCGC2_R;  // Delay
-
-    // Wait for 4 cycles
-    for (delay = 0; delay < 4; delay++)
-        ;
-    return GPIO_SUCCESS;
+    *sysctlRCGCGPIOReg |= (1 << port);  // Enable the clock for the specified port
+    delay = *sysctlRCGCGPIOReg;         // Delay
+    *sysctlRCGC2Reg |= (1 << port);     // Enable the corresponding bit in RCGC2
+    delay = *sysctlRCGC2Reg;            // Delay
 }
 
-
-//unlock using magic number
-GPIO_Status GPIO_UnlockPort(GPIO_Port port)
+void GPIO_UnlockPort(GPIO_Port port)
 {
-	volatile uint32_t* portLockReg;
-	volatile uint32_t* portCRReg;
-    // Check if the port is valid
-    if (port < 0 || port > 7) {
-        return GPIO_ERROR_INVALID_PORT;
-    }
-
-    // Calculate the port-specific register addresses
-     portLockReg = (volatile uint32_t *)(GPIO_PORT_BASE + (port << 12) + 0x520);
-     portCRReg = (volatile uint32_t *)(GPIO_PORT_BASE + (port << 12) + 0x524);
-
-    // Unlock the specified port
-    *portLockReg = 0x4C4F434B;
-    *portCRReg = 0x1F;
-
-    return GPIO_SUCCESS;
+    GPIO_PORTF_LOCK_R = 0x4C4F434B; // Unlock PortF PF0
 }
 
+void GPIO_AllowChanges(GPIO_Port port, uint8_t pins)
+{
+    GPIO_PORTF_CR_R = pins; // Allow changes to specified pins
+}
 
+void GPIO_SetAnalogFunction(GPIO_Port port, uint8_t pins)
+{
+    volatile unsigned long *gpioAMSELReg;
 
+    switch (port) {
+        case GPIO_PORTA:
+            gpioAMSELReg = &GPIO_PORTA_AMSEL_R;
+            break;
+        case GPIO_PORTB:
+            gpioAMSELReg = &GPIO_PORTB_AMSEL_R;
+            break;
+        case GPIO_PORTC:
+            gpioAMSELReg = &GPIO_PORTC_AMSEL_R;
+            break;
+        case GPIO_PORTD:
+            gpioAMSELReg = &GPIO_PORTD_AMSEL_R;
+            break;
+        case GPIO_PORTE:
+            gpioAMSELReg = &GPIO_PORTE_AMSEL_R;
+            break;
+        case GPIO_PORTF:
+            gpioAMSELReg = &GPIO_PORTF_AMSEL_R;
+            break;
+        default:
+            return; // Invalid port
+    }
 
+    *gpioAMSELReg = pins; // Set analog function for specified pins
+}
+
+void GPIO_ClearPinControl(GPIO_Port port, uint8_t pins)
+{
+    volatile unsigned long *gpioPCTLReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioPCTLReg = &GPIO_PORTA_PCTL_R;
+            break;
+        case GPIO_PORTB:
+            gpioPCTLReg = &GPIO_PORTB_PCTL_R;
+            break;
+        case GPIO_PORTC:
+            gpioPCTLReg = &GPIO_PORTC_PCTL_R;
+            break;
+        case GPIO_PORTD:
+            gpioPCTLReg = &GPIO_PORTD_PCTL_R;
+            break;
+        case GPIO_PORTE:
+            gpioPCTLReg = &GPIO_PORTE_PCTL_R;
+            break;
+        case GPIO_PORTF:
+            gpioPCTLReg = &GPIO_PORTF_PCTL_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    *gpioPCTLReg &= ~pins; // Clear pin control for specified pins
+}
+
+void GPIO_SetPinDirection(GPIO_Port port, GPIO_Pin pin, uint8_t direction)
+{
+    volatile unsigned long *gpioDirReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioDirReg = &GPIO_PORTA_DIR_R;
+            break;
+        case GPIO_PORTB:
+            gpioDirReg = &GPIO_PORTB_DIR_R;
+            break;
+        case GPIO_PORTC:
+            gpioDirReg = &GPIO_PORTC_DIR_R;
+            break;
+        case GPIO_PORTD:
+            gpioDirReg = &GPIO_PORTD_DIR_R;
+            break;
+        case GPIO_PORTE:
+            gpioDirReg = &GPIO_PORTE_DIR_R;
+            break;
+        case GPIO_PORTF:
+            gpioDirReg = &GPIO_PORTF_DIR_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    if (direction == 0) {
+        *gpioDirReg &= ~pin; // Set pin as input
+    } else {
+        *gpioDirReg |= pin; // Set pin as output
+    }
+}
+
+void GPIO_DisableAlternateFunction(GPIO_Port port, uint8_t pins)
+{
+    volatile unsigned long *gpioAFSELReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioAFSELReg = &GPIO_PORTA_AFSEL_R;
+            break;
+        case GPIO_PORTB:
+            gpioAFSELReg = &GPIO_PORTB_AFSEL_R;
+            break;
+        case GPIO_PORTC:
+            gpioAFSELReg = &GPIO_PORTC_AFSEL_R;
+            break;
+        case GPIO_PORTD:
+            gpioAFSELReg = &GPIO_PORTD_AFSEL_R;
+            break;
+        case GPIO_PORTE:
+            gpioAFSELReg = &GPIO_PORTE_AFSEL_R;
+            break;
+        case GPIO_PORTF:
+            gpioAFSELReg = &GPIO_PORTF_AFSEL_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    *gpioAFSELReg &= ~pins; // Disable alternate function for specified pins
+}
+
+void GPIO_EnablePullUp(GPIO_Port port, GPIO_Pin pin)
+{
+    volatile unsigned long *gpioPURReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioPURReg = &GPIO_PORTA_PUR_R;
+            break;
+        case GPIO_PORTB:
+            gpioPURReg = &GPIO_PORTB_PUR_R;
+            break;
+        case GPIO_PORTC:
+            gpioPURReg = &GPIO_PORTC_PUR_R;
+            break;
+        case GPIO_PORTD:
+            gpioPURReg = &GPIO_PORTD_PUR_R;
+            break;
+        case GPIO_PORTE:
+            gpioPURReg = &GPIO_PORTE_PUR_R;
+            break;
+        case GPIO_PORTF:
+            gpioPURReg = &GPIO_PORTF_PUR_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    *gpioPURReg |= pin; // Enable pull-up resistor for specified pin
+}
+
+void GPIO_EnableDigital(GPIO_Port port, uint8_t pins)
+{
+    volatile unsigned long *gpioDENReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioDENReg = &GPIO_PORTA_DEN_R;
+            break;
+        case GPIO_PORTB:
+            gpioDENReg = &GPIO_PORTB_DEN_R;
+            break;
+        case GPIO_PORTC:
+            gpioDENReg = &GPIO_PORTC_DEN_R;
+            break;
+        case GPIO_PORTD:
+            gpioDENReg = &GPIO_PORTD_DEN_R;
+            break;
+        case GPIO_PORTE:
+            gpioDENReg = &GPIO_PORTE_DEN_R;
+            break;
+        case GPIO_PORTF:
+            gpioDENReg = &GPIO_PORTF_DEN_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    *gpioDENReg |= pins; // Enable digital pins for specified pins
+}
+
+void GPIO_SetInterruptSense(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptSense sense)
+{
+    volatile unsigned long *gpioISReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioISReg = &GPIO_PORTA_IS_R;
+            break;
+        case GPIO_PORTB:
+            gpioISReg = &GPIO_PORTB_IS_R;
+            break;
+        case GPIO_PORTC:
+            gpioISReg = &GPIO_PORTC_IS_R;
+            break;
+        case GPIO_PORTD:
+            gpioISReg = &GPIO_PORTD_IS_R;
+            break;
+        case GPIO_PORTE:
+            gpioISReg = &GPIO_PORTE_IS_R;
+            break;
+        case GPIO_PORTF:
+            gpioISReg = &GPIO_PORTF_IS_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    if (sense == GPIO_LEVEL_SENSITIVE) {
+        *gpioISReg |= pin; // Set level-sensitive interrupt for specified pin
+    } else {
+        *gpioISReg &= ~pin; // Set edge-sensitive interrupt for specified pin
+    }
+}
+
+void GPIO_SetInterruptBothEdges(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptBothEdges edges)
+{
+    volatile unsigned long *gpioIBEReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioIBEReg = &GPIO_PORTA_IBE_R;
+            break;
+        case GPIO_PORTB:
+            gpioIBEReg = &GPIO_PORTB_IBE_R;
+            break;
+        case GPIO_PORTC:
+            gpioIBEReg = &GPIO_PORTC_IBE_R;
+            break;
+        case GPIO_PORTD:
+            gpioIBEReg = &GPIO_PORTD_IBE_R;
+            break;
+        case GPIO_PORTE:
+            gpioIBEReg = &GPIO_PORTE_IBE_R;
+            break;
+        case GPIO_PORTF:
+            gpioIBEReg = &GPIO_PORTF_IBE_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    if (edges == GPIO_ENABLE_BOTH_EDGES) {
+        *gpioIBEReg |= pin; // Enable both edges trigger for specified pin
+    } else {
+        *gpioIBEReg &= ~pin; // Disable both edges trigger for specified pin
+    }
+}
+
+void GPIO_SetInterruptEvent(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptEvent event)
+{
+    volatile unsigned long *gpioIEVReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioIEVReg = &GPIO_PORTA_IEV_R;
+            break;
+        case GPIO_PORTB:
+            gpioIEVReg = &GPIO_PORTB_IEV_R;
+            break;
+        case GPIO_PORTC:
+            gpioIEVReg = &GPIO_PORTC_IEV_R;
+            break;
+        case GPIO_PORTD:
+            gpioIEVReg = &GPIO_PORTD_IEV_R;
+            break;
+        case GPIO_PORTE:
+            gpioIEVReg = &GPIO_PORTE_IEV_R;
+            break;
+        case GPIO_PORTF:
+            gpioIEVReg = &GPIO_PORTF_IEV_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    if (event == GPIO_RISING_EDGE_EVENT) {
+        *gpioIEVReg |= pin; // Set rising edge trigger for specified pin
+    } else {
+        *gpioIEVReg &= ~pin; // Set falling edge trigger for specified pin
+    }
+}
+
+void GPIO_ClearInterruptFlags(GPIO_Port port, GPIO_Pin pin)
+{
+    volatile unsigned long *gpioICRReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioICRReg = &GPIO_PORTA_ICR_R;
+            break;
+        case GPIO_PORTB:
+            gpioICRReg = &GPIO_PORTB_ICR_R;
+            break;
+        case GPIO_PORTC:
+            gpioICRReg = &GPIO_PORTC_ICR_R;
+            break;
+        case GPIO_PORTD:
+            gpioICRReg = &GPIO_PORTD_ICR_R;
+            break;
+        case GPIO_PORTE:
+            gpioICRReg = &GPIO_PORTE_ICR_R;
+            break;
+        case GPIO_PORTF:
+            gpioICRReg = &GPIO_PORTF_ICR_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    *gpioICRReg = pin; // Clear interrupt flags for specified pin
+}
+
+void GPIO_EnableInterrupt(GPIO_Port port, GPIO_Pin pin)
+{
+    volatile unsigned long *gpioIMReg;
+
+    switch (port) {
+        case GPIO_PORTA:
+            gpioIMReg = &GPIO_PORTA_IM_R;
+            break;
+        case GPIO_PORTB:
+            gpioIMReg = &GPIO_PORTB_IM_R;
+            break;
+        case GPIO_PORTC:
+            gpioIMReg = &GPIO_PORTC_IM_R;
+            break;
+        case GPIO_PORTD:
+            gpioIMReg = &GPIO_PORTD_IM_R;
+            break;
+        case GPIO_PORTE:
+            gpioIMReg = &GPIO_PORTE_IM_R;
+            break;
+        case GPIO_PORTF:
+            gpioIMReg = &GPIO_PORTF_IM_R;
+            break;
+        default:
+            return; // Invalid port
+    }
+
+    *gpioIMReg |= pin; // Enable interrupt for specified pin
+}
+
+void GPIO_SetInterruptPriority(uint8_t priority)
+{
+    NVIC_PRI7_R = (NVIC_PRI7_R & 0xFF00FFFF) | (priority << 21); // Set interrupt priority
+}
+
+void GPIO_EnableInterruptInNVIC()
+{
+    NVIC_EN0_R |= 0x40000000; // Enable interrupt in NVIC (IRQ = 30)
+}
