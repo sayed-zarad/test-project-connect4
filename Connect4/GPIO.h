@@ -18,6 +18,9 @@ typedef enum {
     GPIO_PIN_2 = 0x04,
     GPIO_PIN_3 = 0x08,
     GPIO_PIN_4 = 0x10
+    GPIO_PIN_5 = 0x20,
+    GPIO_PIN_6 = 0x40,
+    GPIO_PIN_7 = 0x80
 } GPIO_Pin;
 
 
@@ -38,15 +41,17 @@ typedef enum {
     GPIO_RISING_EDGE_EVENT = 1
 } GPIO_InterruptEvent;
 
-void GPIO_EnablePortClock(GPIO_Port port);
-void GPIO_UnlockPort(GPIO_Port port);
-void GPIO_AllowChanges(GPIO_Port port, uint8_t pins);
-void GPIO_SetAnalogFunction(GPIO_Port port, uint8_t pins);
-void GPIO_ClearPinControl(GPIO_Port port, uint8_t pins);
-void GPIO_SetPinDirection(GPIO_Port port, GPIO_Pin pin, uint8_t direction);
-void GPIO_DisableAlternateFunction(GPIO_Port port, uint8_t pins);
-void GPIO_EnablePullUp(GPIO_Port port, GPIO_Pin pin);
-void GPIO_EnableDigital(GPIO_Port port, uint8_t pins);
+void GPIO_Init(void);
+GPIO_Status GPIO_EnablePortClock(GPIO_Port port);
+GPIO_Status GPIO_UnlockPort(GPIO_Port port);
+GPIO_Status GPIO_AllowChanges(GPIO_Port port, uint8_t pins);
+GPIO_Status GPIO_SetAnalogFunction(GPIO_Port port, uint8_t pins);
+GPIO_Status GPIO_ClearPinControl(GPIO_Port port, uint8_t pins);
+GPIO_Status GPIO_SetPinDirection(GPIO_Port port, GPIO_Pin pin, uint8_t direction);
+GPIO_Status GPIO_DisableAlternateFunction(GPIO_Port port, uint8_t pins);
+GPIO_Status GPIO_EnablePullUp(GPIO_Port port, GPIO_Pin pin);
+GPIO_Status GPIO_EnableDigital(GPIO_Port port, uint8_t pins);
+
 void GPIO_SetInterruptSense(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptSense sense);
 void GPIO_SetInterruptBothEdges(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptBothEdges edges);
 void GPIO_SetInterruptEvent(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptEvent event);
