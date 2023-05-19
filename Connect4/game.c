@@ -112,7 +112,32 @@ int diagonalCheck(char *board){
    }
    return 0;
 }
-
+int takeTurn(char *board, int player, const char *PIECES)
+{
+    // Reset variables
+    col = 0;
+    sw1_pressed = 0;
+    sw2_pressed = 0;
+    // Set initial cursor position and display character
+    Nokia5110_SetCursorChar(col, 0, PIECES[player]);
+    while (1) {
+        if (sw1_pressed) {
+            sw1_pressed = 0;
+            // Clear previous character's position
+            Nokia5110_SetCursorChar(col, 0, ' ');   
+            col++;
+            if (col > 6)
+                col = 0;
+            // Update new character's position
+            Nokia5110_SetCursorChar(col, 0, PIECES[player]);
+        }
+        if (sw2_pressed) {
+            sw2_pressed = 0;
+            break;
+        }       
+    }
+    return changeBoard(board, player, PIECES, col);
+}
 
 
 
