@@ -2,7 +2,9 @@
 #define GPIO_H
 #include "tm4c123gh6pm.h"
 #include <stdint.h>
-
+#include <stdbool.h>
+#define INPUT 0
+#define OUTPUT 1
 typedef enum {
     GPIO_PORTA = 0,
     GPIO_PORTB,
@@ -51,7 +53,8 @@ GPIO_Status GPIO_SetPinDirection(GPIO_Port port, GPIO_Pin pin, uint8_t direction
 GPIO_Status GPIO_DisableAlternateFunction(GPIO_Port port, uint8_t pins);
 GPIO_Status GPIO_EnablePullUp(GPIO_Port port, GPIO_Pin pin);
 GPIO_Status GPIO_EnableDigital(GPIO_Port port, uint8_t pins);
-
+//for the interrupt handling
+bool GPIO_CheckInterruptStatus(GPIO_Port port, GPIO_Pin pin);
 void GPIO_SetInterruptSense(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptSense sense);
 void GPIO_SetInterruptBothEdges(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptBothEdges edges);
 void GPIO_SetInterruptEvent(GPIO_Port port, GPIO_Pin pin, GPIO_InterruptEvent event);
