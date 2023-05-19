@@ -61,6 +61,10 @@ int checkWin(char *board){
     return (horizontalCheck(board) || verticalCheck(board) || diagonalCheck(board));
 }
 
+int checkFour(char *board, int a, int b, int c, int d){
+    return (board[a] == board[b] && board[b] == board[c] && board[c] == board[d] && board[a] != ' ');
+}
+
 int horizontalCheck(char *board){
     int row, col, idx;
     const int WIDTH = 1;
