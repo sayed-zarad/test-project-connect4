@@ -47,6 +47,36 @@ int changeBoard(char *board,int player , const char *PIECES , int col  )
 	 return 0 ;
 }
 
+int hasEmptyCol(char *board, int col  )
+{
+	int row ;
+   for(row = BOARD_ROWS - 1; row >= 0; row--){
+      if(board[BOARD_COLS * row + col] == ' '){
+         return 1;
+      }
+   }
+	 return 0 ;
+}
+int checkWin(char *board){
+    return (horizontalCheck(board) || verticalCheck(board) || diagonalCheck(board));
+}
+int diagonalCheck(char *board){
+   int row, col, idx, count = 0;
+   const int DIAG_RGT = 6, DIAG_LFT = 8;
+
+   for(row = 0; row < BOARD_ROWS - 3; row++){
+      for(col = 0; col < BOARD_COLS; col++){
+         idx = BOARD_COLS * row + col;
+         if((count <= 3 && checkFour(board, idx, idx + DIAG_LFT, idx + DIAG_LFT * 2, idx + DIAG_LFT * 3)) || (count >= 3 && checkFour(board, idx, idx + DIAG_RGT, idx + DIAG_RGT * 2, idx + DIAG_RGT * 3))){
+            return 1;
+         }
+         count++;
+      }
+      count = 0;
+   }
+   return 0;
+}
+
 
 
 
