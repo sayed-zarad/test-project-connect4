@@ -6,15 +6,16 @@ void GPIO_Init(void)
     GPIO_EnablePortClock(GPIO_PORTF);   // Enable Port F clock
 
     GPIO_UnlockPort(GPIO_PORTF);        // Unlock PortF PF0
-    GPIO_AllowChanges(GPIO_PORTF, 0x1F); // Allow changes to PF4-0
-
+    //GPIO_AllowChanges(GPIO_PORTF, 0x1F); // Allow changes to PF4-0
+    GPIO_AllowChanges(GPIO_PORTF, GPIO_PIN_4 | GPIO_PIN_3 | GPIO_PIN_2 | GPIO_PIN_1 | GPIO_PIN_0);
     GPIO_SetAnalogFunction(GPIO_PORTF, 0x00);       // Disable analog function
     GPIO_ClearPinControl(GPIO_PORTF, 0x1F);          // Clear GPIO PCTL
-    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_4, 0); // PF4 input
-    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_0, 0); // PF0 input
-    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_3, 1); // PF3 output
-    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_2, 1); // PF2 output
-    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_1, 1); // PF1 output
+    
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_4,INPUT); // PF4 input
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_0, INPUT); // PF0 input
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_3, OUTPUT); // PF3 output
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_2, OUTPUT); // PF2 output
+    GPIO_SetPinDirection(GPIO_PORTF, GPIO_PIN_1, OUTPUT); // PF1 output
 
     GPIO_DisableAlternateFunction(GPIO_PORTF, 0x00); // Disable alternate function
     GPIO_EnablePullUp(GPIO_PORTF, GPIO_PIN_4);       // Enable pull-up resistor on PF4
@@ -40,7 +41,8 @@ void GPIO_Init(void)
    GPIO_EnableInterruptInNVIC();
 }
 
-void GPIO_EnablePortClock(GPIO_Port port)
+//add the magic number for specific port 
+GPIO_Status GPIO_EnablePortClock(GPIO_Port port)
 {
     volatile unsigned long delay;
     volatile unsigned long* sysctlRCGCGPIOReg;
@@ -72,13 +74,14 @@ void GPIO_EnablePortClock(GPIO_Port port)
             sysctlRCGC2Reg = &SYSCTL_RCGC2_R;
             break;
         default:
-            return; // Invalid port
+            return GPIO_INVALID_PORT; // Invalid port
     }
 
     *sysctlRCGCGPIOReg |= (1 << port);  // Enable the clock for the specified port
     delay = *sysctlRCGCGPIOReg;         // Delay
     *sysctlRCGC2Reg |= (1 << port);     // Enable the corresponding bit in RCGC2
-    delay = *sysctlRCGC2Reg;            // Delay
+    delay = *sysctlRCGC2Reg;            // Delay to make sure of the connection 
+    return GPIO_SUCCESS; // Clock enabled successfully
 }
 
 void GPIO_UnlockPort(GPIO_Port port)
@@ -90,6 +93,7 @@ void GPIO_AllowChanges(GPIO_Port port, uint8_t pins)
 {
     GPIO_PORTF_CR_R = pins; // Allow changes to specified pins
 }
+
 
 void GPIO_SetAnalogFunction(GPIO_Port port, uint8_t pins)
 {
