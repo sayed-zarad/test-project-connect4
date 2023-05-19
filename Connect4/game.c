@@ -25,6 +25,16 @@ void startingScreen()
 	}
 
 }
+void printBoard(char *board){
+   int row, col;
+	Nokia5110_ClearBuffer();
+   for(row = 0; row < BOARD_ROWS; row++){
+      for(col = 0; col < BOARD_COLS; col++){
+				Nokia5110_SetCursorChar( col ,row,board[BOARD_COLS*row+col]);
+      }
+   }
+}
+
 
 
 
