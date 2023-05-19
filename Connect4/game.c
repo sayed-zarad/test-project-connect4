@@ -76,6 +76,21 @@ int horizontalCheck(char *board){
     return 0;
 
 }
+int verticalCheck(char *board){
+    int row, col, idx;
+    const int HEIGHT = 7;
+
+    for(row = 0; row < BOARD_ROWS - 3; row++){
+       for(col = 0; col < BOARD_COLS; col++){
+          idx = BOARD_COLS * row + col;
+          if(checkFour(board, idx, idx + HEIGHT, idx + HEIGHT * 2, idx + HEIGHT * 3)){
+              return 1;
+          }
+       }
+    }
+    return 0;
+
+}
 
 int diagonalCheck(char *board){
    int row, col, idx, count = 0;
