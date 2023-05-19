@@ -99,5 +99,23 @@ int main(void){
 	}
 	
 
+void GPIOPortF_Handler(void)
+{
+    if (GPIO_CheckInterruptStatus(GPIO_PORTF, GPIO_PIN_4)) {
+        // Handle SW1 interrupt
+        GPIO_ClearInterruptFlags(GPIO_PORTF, GPIO_PIN_4);
+        sw1_pressed = 1;
+	TIMER_INIT( 2,4,"Seconds","periodic","32");
+    }
+
+    if (GPIO_CheckInterruptStatus(GPIO_PORTF, GPIO_PIN_0)) {
+        // Handle SW2 interrupt
+        GPIO_ClearInterruptFlags(GPIO_PORTF, GPIO_PIN_0);
+        sw2_pressed = 1;
+	TIMER_INIT( 2,4,"Seconds","periodic","32");
+    }
+}
+
+
 
 
