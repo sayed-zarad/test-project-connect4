@@ -35,6 +35,18 @@ void printBoard(char *board){
    }
 }
 
+int changeBoard(char *board,int player , const char *PIECES , int col  )
+{
+	int row ;
+   for(row = BOARD_ROWS - 1; row >= 0; row--){
+      if(board[BOARD_COLS * row + col] == ' '){
+         board[BOARD_COLS * row + col] = PIECES[player];
+         return 1;
+      }
+   }
+	 return 0 ;
+}
+
 
 
 
