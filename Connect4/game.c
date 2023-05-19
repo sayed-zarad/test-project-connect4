@@ -60,6 +60,23 @@ int hasEmptyCol(char *board, int col  )
 int checkWin(char *board){
     return (horizontalCheck(board) || verticalCheck(board) || diagonalCheck(board));
 }
+
+int horizontalCheck(char *board){
+    int row, col, idx;
+    const int WIDTH = 1;
+
+    for(row = 0; row < BOARD_ROWS; row++){
+       for(col = 0; col < BOARD_COLS - 3; col++){
+          idx = BOARD_COLS * row + col;
+          if(checkFour(board, idx, idx + WIDTH, idx + WIDTH * 2, idx + WIDTH * 3)){
+             return 1;
+          }
+       }
+    }
+    return 0;
+
+}
+
 int diagonalCheck(char *board){
    int row, col, idx, count = 0;
    const int DIAG_RGT = 6, DIAG_LFT = 8;
